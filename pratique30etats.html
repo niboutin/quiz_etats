@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Quiz Géographique</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body, html { margin: 0; height: 100%; font-family: sans-serif; }
+    #map { height: 90vh; }
+    #question { padding: 10px; font-size: 1.2em; background: #f0f0f0; }
+    #score { padding: 10px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div id="question">Clique sur : <span id="target">—</span></div>
+  <div id="score">Score : 0 / 0</div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/topojson-client@3"></script>
+  <script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js"></script>
+
+  <script>
+    const map = L.map('map').setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const countriesFR_EN = [
+      ["Canada", "Canada"],
+      ["États-Unis", "United States of America"],
+      ["Mexique", "Mexico"],
+      ["Brésil", "Brazil"],
+      ["Argentine", "Argentina"],
+      ["Chili", "Chile"],
+      ["France", "France"],
+      ["Italie", "Italy"],
+      ["Grèce", "Greece"],
+      ["Royaume-Uni", "United Kingdom"],
+      ["Allemagne", "Germany"],
+      ["Russie", "Russia"],
+      ["Égypte", "Egypt"],
+      ["Nigéria", "Nigeria"],
+      ["Afrique du Sud", "South Africa"],
+      ["Éthiopie", "Ethiopia"],
+      ["Mali", "Mali"],
+      ["Chine", "China"],
+      ["Inde", "India"],
+      ["Bangladesh", "Bangladesh"],
+      ["Japon", "Japan"],
+      ["Arabie saoudite", "Saudi Arabia"],
+      ["Iran", "Iran"],
+      ["Indonésie", "Indonesia"],
+      ["Australie", "Australia"],
+      ["Nouvelle-Zélande", "New Zealand"],
+      ["Espagne", "Spain"],
+      ["Turquie", "Turkey"],
+      ["Kenya", "Kenya"],
+      ["Émirats arabes unis", "United Arab Emirates"]
+    ];
+
+    let current = null, correct = 0, total = 0;
+
+    const targetEl = document.getElementById("target");
+    const scoreEl = document.getElementById("score");
+    const questionEl = document.getElementById("question");
+
+    function updateScore() {
+      scoreEl.textContent = `Score : ${correct} / ${total}`;
+    }
+
+    function nextQuestion() {
+      if (countriesFR_EN.length === 0) {
+        targetEl.textContent = "Terminé 🎉";
+        return;
+      }
+      current = countriesFR_EN.pop();
+      questionEl.innerHTML = `Clique sur : <span id="target">${current[0]}</span>`;
+    }
+
+    async function init() {
+      const topo = await d3.json("https://unpkg.com/world-atlas@2/countries-110m.json");
+      const world = topojson.feature(topo, topo.objects.countries);
+      const needed = new Map(countriesFR_EN.map(([fr, en]) => [en, fr]));
+      const features = world.features.filter(f => needed.has(f.properties.name));
+
+      const layer = L.geoJSON(features, {
+        style: { color: "#555", weight: 1, fillOpacity: 0.3 },
+        onEachFeature: (feature, layer) => {
+          const en = feature.properties.name;
+          const fr = needed.get(en);
+
+          // Pas de tooltip au survol
+          // layer.bindTooltip(fr, { sticky: true });
+
+          layer.on("click", () => {
+            total++;
+            questionEl.innerHTML = `
+              Clique sur : <span id="target">${current[0]}</span><br>
+              Tu as cliqué sur : <strong>${fr}</strong>
+            `;
+            if (current && en === current[1]) {
+              correct++;
+              layer.setStyle({ color: "green", fillOpacity: 0.6 });
+              nextQuestion();
+            } else {
+              layer.setStyle({ color: "red", fillOpacity: 0.6 });
+            }
+            updateScore();
+          });
+        }
+      }).addTo(map);
+
+      nextQuestion();
+    }
+
+    init();
+  </script>
+</body>
+</html>
